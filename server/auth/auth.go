@@ -63,6 +63,7 @@ func (auth *AuthRouter) SignUp(c *gin.Context) {
 	user := &models.User{
 		FirstName: payload.FirstName,
 		LastName:  payload.LastName,
+		Username:  payload.Username,
 		Phone:     payload.Phone,
 		Email:     payload.Email,
 		Password:  payload.Password,
