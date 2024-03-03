@@ -9,15 +9,15 @@ import (
 	"github.com/juliotorresmoreno/specialist-talk-api/models"
 )
 
-var SessionFields = []string{"id", "name", "last_name", "email", "photo_url", "phone"}
+var SessionFields = []string{"id", "first_name", "last_name", "username", "email", "photo_url", "phone"}
 
 type User struct {
-	ID       uint   `json:"id"`
-	Name     string `json:"name"`
-	LastName string `json:"last_name"`
-	Email    string `json:"email"`
-	PhotoURL string `json:"photo_url"`
-	Phone    string `json:"phone"`
+	ID        uint   `json:"id"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Email     string `json:"email"`
+	PhotoURL  string `json:"photo_url"`
+	Phone     string `json:"phone"`
 }
 
 type Session struct {
@@ -54,12 +54,12 @@ func ParseSession(token string, user *models.User) *Session {
 	return &Session{
 		Token: token,
 		User: &User{
-			ID:       user.ID,
-			Name:     user.Name,
-			LastName: user.LastName,
-			Email:    user.Email,
-			PhotoURL: user.PhotoURL,
-			Phone:    user.Phone,
+			ID:        user.ID,
+			FirstName: user.FirstName,
+			LastName:  user.LastName,
+			Email:     user.Email,
+			PhotoURL:  user.PhotoURL,
+			Phone:     user.Phone,
 		},
 	}
 }

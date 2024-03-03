@@ -25,11 +25,12 @@ func SetupAUTHRoutes(r *gin.RouterGroup) {
 }
 
 type SignUpPayload struct {
-	Name     string `json:"name" validate:"required,validname"`
-	LastName string `json:"last_name" validate:"required,validname"`
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required,min=6"`
-	Phone    string `json:"phone" validate:"max=15"`
+	FirstName string `json:"first_name" validate:"required,validname"`
+	LastName  string `json:"last_name" validate:"required,validname"`
+	Username  string `json:"username" validate:"required,max=100"`
+	Email     string `json:"email" validate:"required,email"`
+	Password  string `json:"password" validate:"required,min=6"`
+	Phone     string `json:"phone" validate:"max=15"`
 }
 
 var signUpValidator = NewSignUpValidator()
@@ -45,12 +46,14 @@ func (auth *AuthRouter) SignUp(c *gin.Context) {
 
 	validation, err := signUpValidator.ValidateSignUp(payload)
 	if err != nil {
+		log.Error(err)
 		c.JSON(http.StatusBadRequest, validation)
 		return
 	}
 
 	payload.Password, err = utils.HashPassword(payload.Password)
 	if err != nil {
+		log.Error(err)
 		utils.Response(c, utils.StatusInternalServerError)
 		return
 	}
@@ -58,20 +61,27 @@ func (auth *AuthRouter) SignUp(c *gin.Context) {
 	conn := db.DefaultClient
 
 	user := &models.User{
-		Name:     payload.Name,
-		LastName: payload.LastName,
-		Phone:    payload.Phone,
-		Email:    payload.Email,
-		Password: payload.Password,
+		FirstName: payload.FirstName,
+		LastName:  payload.LastName,
+		Phone:     payload.Phone,
+		Email:     payload.Email,
+		Password:  payload.Password,
 	}
 	tx := conn.Save(user)
 	if tx.Error != nil {
-		log.Info(tx.Error)
+		log.Error(tx.Error)
 
 		if strings.Contains(tx.Error.Error(), "duplicate key") {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"email": payload.Email + " already exists",
-			})
+			if strings.Contains(tx.Error.Error(), "email") {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"email": payload.Email + " already exists",
+				})
+			}
+			if strings.Contains(tx.Error.Error(), "username") {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"username": payload.Username + " already exists",
+				})
+			}
 			return
 		}
 		utils.Response(c, utils.StatusInternalServerError)

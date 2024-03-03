@@ -9,9 +9,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/juliotorresmoreno/specialist-talk-api/db"
 	"github.com/juliotorresmoreno/specialist-talk-api/logger"
-	"github.com/juliotorresmoreno/specialist-talk-api/middlewares"
 	"github.com/juliotorresmoreno/specialist-talk-api/server"
-	"github.com/juliotorresmoreno/specialist-talk-api/subscriptions"
 )
 
 func main() {
@@ -22,10 +20,8 @@ func main() {
 	}
 	logger.SetupLogrus()
 	db.Setup()
-	subscriptions.Setup()
 
 	r := gin.Default()
-	r.Use(middlewares.AuthMiddleware())
 	server.SetupAPIRoutes(r.Group("api"))
 	r.Run(os.Getenv("ADDR"))
 }

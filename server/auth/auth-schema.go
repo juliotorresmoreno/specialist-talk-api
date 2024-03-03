@@ -49,15 +49,15 @@ func PasswordValidation(fl validator.FieldLevel) bool {
 }
 
 type SignUpValidationErrors struct {
-	NameError     string `json:"name"`
-	LastNameError string `json:"last_name"`
-	PhoneError    string `json:"phone"`
-	EmailError    string `json:"email"`
-	PasswordError string `json:"password"`
+	FirstNameError string `json:"first_name"`
+	LastNameError  string `json:"last_name"`
+	Username       string `json:"username"`
+	PhoneError     string `json:"phone"`
+	EmailError     string `json:"email"`
+	PasswordError  string `json:"password"`
 }
 
 func isValidName(fl validator.FieldLevel) bool {
-	// Expresión regular para validar nombres
 	nameRegex := regexp.MustCompile(`^[a-zA-Z]+(([',. -][a-zA-Z ])?[a-zA-Z]*)*$`)
 	return nameRegex.MatchString(fl.Field().String())
 }
@@ -89,11 +89,12 @@ func (cv *SignUpValidator) ValidateSignUp(form *SignUpPayload) (SignUpValidation
 		}
 
 		customErrors := SignUpValidationErrors{
-			NameError:     errorsMap["Name"],
-			LastNameError: errorsMap["LastName"],
-			PhoneError:    errorsMap["Phone"],
-			EmailError:    errorsMap["Email"],
-			PasswordError: errorsMap["Password"],
+			FirstNameError: errorsMap["FirstName"],
+			LastNameError:  errorsMap["LastName"],
+			PhoneError:     errorsMap["Phone"],
+			Username:       errorsMap["Username"],
+			EmailError:     errorsMap["Email"],
+			PasswordError:  errorsMap["Password"],
 		}
 
 		return customErrors, errors.New("validation errors")
