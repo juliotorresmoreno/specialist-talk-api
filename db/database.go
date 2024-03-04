@@ -35,6 +35,8 @@ func Setup() {
 
 	reportError(DefaultClient.AutoMigrate(&models.User{}))
 	reportError(DefaultClient.AutoMigrate(&models.Post{}))
+	reportError(DefaultClient.AutoMigrate(&models.Like{}))
+	reportError(DefaultClient.AutoMigrate(&models.Comment{}))
 
 	DefaultCache, err = NewRedisClient()
 	if err == nil {
