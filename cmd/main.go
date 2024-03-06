@@ -10,6 +10,7 @@ import (
 	"github.com/juliotorresmoreno/specialist-talk-api/db"
 	"github.com/juliotorresmoreno/specialist-talk-api/logger"
 	"github.com/juliotorresmoreno/specialist-talk-api/server"
+	"github.com/juliotorresmoreno/specialist-talk-api/server/events"
 )
 
 func main() {
@@ -22,6 +23,7 @@ func main() {
 	db.Setup()
 
 	r := gin.Default()
-	server.SetupAPIRoutes(r.Group("api"))
+	server.SetupAPIRoutes(r.Group("/api"))
+	events.SetupAPIRoutes(r.Group("/events"))
 	r.Run(os.Getenv("ADDR"))
 }

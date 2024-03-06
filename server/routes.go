@@ -11,4 +11,5 @@ func SetupAPIRoutes(r *gin.RouterGroup) {
 	auth.SetupAPIRoutes(r)
 	users.SetupAPIRoutes(r.Group("/users"))
 	posts.SetupApiRoutes(r.Group("/posts"))
+
 }
