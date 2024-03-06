@@ -10,8 +10,8 @@ type User struct {
 	ID             uint           `gorm:"primaryKey"`
 	ValidationCode string         `gorm:"type:varchar(6)"`
 	Verified       bool           `gorm:"default:false"`
-	FirstName      string         `gorm:"type:varchar(100);default:'';nullable"`
-	LastName       string         `gorm:"type:varchar(100);default:'';nullable"`
+	FirstName      string         `gorm:"type:varchar(100);default:'';nullable;index"`
+	LastName       string         `gorm:"type:varchar(100);default:'';nullable;index"`
 	Email          string         `gorm:"type:varchar(300);default:'';unique;not null"`
 	Username       string         `gorm:"type:varchar(100);default:'';unique;not null"`
 	Password       string         `gorm:"type:varchar(512);default:'';not null"`
@@ -23,6 +23,8 @@ type User struct {
 	Url            string         `gorm:"type:varchar(1000);default:'';nullable"`
 	Description    string         `gorm:"type:varchar(1000);default:'';nullable"`
 	Rol            string         `gorm:"type:varchar(15);default:''"`
+	Chats          []Chat         `gorm:"foreignKey:OwnerId"`
+	ChatUsers      []ChatUser     `gorm:"foreignKey:UserId"`
 	CreationAt     time.Time      `gorm:"type:timestamptz;default:CURRENT_TIMESTAMP"`
 	UpdatedAt      time.Time      `gorm:"type:timestamptz"`
 	DeletedAt      gorm.DeletedAt `gorm:"type:timestamptz"`

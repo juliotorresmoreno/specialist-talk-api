@@ -5,7 +5,35 @@ import (
 	"reflect"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator"
+	"github.com/juliotorresmoreno/specialist-talk-api/logger"
 )
+
+var log = logger.SetupLogger()
+
+func ParseErrors(err error) map[string]string {
+	log.Error("Error validating user input", err)
+	errorsMap := make(map[string]string)
+
+	for _, err := range err.(validator.ValidationErrors) {
+		field := err.Field()
+		tag := err.Tag()
+
+		switch tag {
+		case "required":
+			errorsMap[field] = "This field is required!"
+		case "email":
+			errorsMap[field] = "Invalid email format!"
+		case "phone":
+			errorsMap[field] = "Invalid phone number!"
+		case "pattern":
+			errorsMap[field] = "Password does not meet requirements!"
+		default:
+			errorsMap[field] = "Invalid field!"
+		}
+	}
+	return errorsMap
+}
 
 type HttpResponse struct {
 	Status int

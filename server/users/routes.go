@@ -20,6 +20,8 @@ type UsersRouter struct {
 
 func SetupAPIRoutes(r *gin.RouterGroup) {
 	users := &UsersRouter{}
+
+	r.GET("", users.find)
 	r.GET("/me", users.findMe)
 	r.PATCH("/me", users.updateMe)
 }
@@ -27,7 +29,7 @@ func SetupAPIRoutes(r *gin.RouterGroup) {
 type User struct {
 	ID           uint       `json:"id"`
 	Verified     bool       `json:"verified"`
-	Name         string     `json:"name" validate:"omitempty,min=2,max=100"`
+	FirstName    string     `json:"first_name" validate:"omitempty,min=2,max=100"`
 	LastName     string     `json:"last_name" validate:"omitempty,min=2,max=100"`
 	Email        string     `json:"email" validate:"omitempty,email"`
 	PhotoURL     string     `json:"photo_url"`
@@ -39,6 +41,30 @@ type User struct {
 	CreationAt   time.Time  `json:"creation_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
 	DeletedAt    *time.Time `json:"deleted_at"`
+}
+
+func (h *UsersRouter) find(c *gin.Context) {
+	_, err := utils.ValidateSession(c)
+	if err != nil {
+		utils.Response(c, err)
+		return
+	}
+
+	q := "%" + c.Query("q") + "%"
+
+	conn := db.DefaultClient
+	users := &[]*User{}
+	err = conn.Table(tablename).
+		Where("first_name LIKE ? or last_name LIKE ? or email LIKE ?", q, q, q).
+		Where("deleted_at IS NULL").
+		Find(users).Error
+	if err != nil {
+		log.Error("Error getting users", err)
+		utils.Response(c, err)
+		return
+	}
+
+	c.JSON(200, users)
 }
 
 func (h *UsersRouter) findMe(c *gin.Context) {
@@ -87,26 +113,8 @@ func (h *UsersRouter) updateMe(c *gin.Context) {
 
 	validate := validator.New()
 	if err := validate.Struct(userInput); err != nil {
-		log.Error("Error validating user input", err)
-		errorsMap := make(map[string]string)
+		errorsMap := utils.ParseErrors(err.(validator.ValidationErrors))
 
-		for _, err := range err.(validator.ValidationErrors) {
-			field := err.Field()
-			tag := err.Tag()
-
-			switch tag {
-			case "required":
-				errorsMap[field] = "This field is required!"
-			case "email":
-				errorsMap[field] = "Invalid email format!"
-			case "phone":
-				errorsMap[field] = "Invalid phone number!"
-			case "pattern":
-				errorsMap[field] = "Password does not meet requirements!"
-			default:
-				errorsMap[field] = "Invalid field!"
-			}
-		}
 		customErrors := UpdateValidationErrors{
 			Name:         errorsMap["Name"],
 			LastName:     errorsMap["LastName"],

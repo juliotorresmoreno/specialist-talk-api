@@ -1,10 +1,12 @@
 package posts
 
 import (
+	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator"
 	"github.com/juliotorresmoreno/specialist-talk-api/db"
 	"github.com/juliotorresmoreno/specialist-talk-api/models"
 	"github.com/juliotorresmoreno/specialist-talk-api/utils"
@@ -15,18 +17,18 @@ type PostsRouter struct{}
 func SetupApiRoutes(g *gin.RouterGroup) {
 	h := &PostsRouter{}
 
-	g.GET("", h.GetPosts)
-	g.GET("/:id", h.GetPost)
-	g.POST("", h.CreatePost)
-	g.PATCH("/:id", h.UpdatePost)
-	g.DELETE("/:id", h.DeletePost)
+	g.GET("", h.find)
+	g.GET("/:id", h.findOne)
+	g.POST("", h.create)
+	g.PATCH("/:id", h.update)
+	g.DELETE("/:id", h.delete)
 
-	g.POST("/:id/like", h.LikePost)
-	g.DELETE("/:id/like", h.UnlikePost)
+	g.POST("/:id/like", h.likePost)
+	g.DELETE("/:id/like", h.unlikePost)
 
-	g.POST("/:id/comment", h.CreateComment)
-	g.GET("/:id/comments", h.GetComments)
-	g.DELETE("/:id/comment/:commentId", h.DeleteComment)
+	g.POST("/:id/comment", h.createComment)
+	g.GET("/:id/comments", h.getComments)
+	g.DELETE("/:id/comment/:commentId", h.deleteComment)
 }
 
 type User struct {
@@ -44,8 +46,8 @@ type User struct {
 
 type Post struct {
 	ID         int        `json:"id"`
-	Content    string     `json:"content"`
-	AuthorId   int        `json:"author_id"`
+	Content    string     `json:"content" validate:"required"`
+	AuthorID   int        `json:"author_id"`
 	Author     User       `json:"author"`
 	Likes      int64      `json:"likes" gorm:"-"`
 	Liked      bool       `json:"liked" gorm:"-"`
@@ -55,7 +57,7 @@ type Post struct {
 	DeletedAt  *time.Time `json:"deleted_at,omitempty"`
 }
 
-func (h *PostsRouter) GetPost(c *gin.Context) {
+func (h *PostsRouter) findOne(c *gin.Context) {
 	session, err := utils.ValidateSession(c)
 	if err != nil {
 		c.JSON(401, gin.H{
@@ -114,7 +116,7 @@ func (h *PostsRouter) GetPost(c *gin.Context) {
 	c.JSON(200, post)
 }
 
-func (h *PostsRouter) GetPosts(c *gin.Context) {
+func (h *PostsRouter) find(c *gin.Context) {
 	session, err := utils.ValidateSession(c)
 	if err != nil {
 		c.JSON(401, gin.H{
@@ -172,7 +174,11 @@ func (h *PostsRouter) GetPosts(c *gin.Context) {
 	c.JSON(200, posts)
 }
 
-func (h *PostsRouter) CreatePost(c *gin.Context) {
+type CreateErrors struct {
+	Content string `json:"content,omitempty"`
+}
+
+func (h *PostsRouter) create(c *gin.Context) {
 	session, err := utils.ValidateSession(c)
 	if err != nil {
 		c.JSON(401, gin.H{
@@ -190,6 +196,17 @@ func (h *PostsRouter) CreatePost(c *gin.Context) {
 		return
 	}
 
+	validate := validator.New()
+	if err := validate.Struct(payload); err != nil {
+		errorsMap := utils.ParseErrors(err.(validator.ValidationErrors))
+
+		customErrors := CreateErrors{
+			Content: errorsMap["Content"],
+		}
+		c.JSON(http.StatusBadRequest, customErrors)
+		return
+	}
+
 	post := models.Post{
 		Content:  payload.Content,
 		AuthorId: uint(session.ID),
@@ -204,10 +221,10 @@ func (h *PostsRouter) CreatePost(c *gin.Context) {
 		return
 	}
 
-	c.JSON(201, gin.H{"message": "Post created"})
+	c.JSON(201, gin.H{"message": "created"})
 }
 
-func (h *PostsRouter) UpdatePost(c *gin.Context) {
+func (h *PostsRouter) update(c *gin.Context) {
 	session, err := utils.ValidateSession(c)
 	if err != nil {
 		c.JSON(401, gin.H{
@@ -238,10 +255,10 @@ func (h *PostsRouter) UpdatePost(c *gin.Context) {
 		return
 	}
 
-	c.JSON(200, gin.H{"message": "Post updated"})
+	c.JSON(200, gin.H{"message": "updated"})
 }
 
-func (h *PostsRouter) DeletePost(c *gin.Context) {
+func (h *PostsRouter) delete(c *gin.Context) {
 	session, err := utils.ValidateSession(c)
 	if err != nil {
 		c.JSON(401, gin.H{
@@ -261,5 +278,5 @@ func (h *PostsRouter) DeletePost(c *gin.Context) {
 		return
 	}
 
-	c.JSON(200, gin.H{"message": "Post deleted"})
+	c.JSON(200, gin.H{"message": "deleted"})
 }

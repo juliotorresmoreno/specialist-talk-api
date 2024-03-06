@@ -9,7 +9,7 @@ import (
 	"github.com/juliotorresmoreno/specialist-talk-api/utils"
 )
 
-func (h *PostsRouter) LikePost(c *gin.Context) {
+func (h *PostsRouter) likePost(c *gin.Context) {
 	session, err := utils.ValidateSession(c)
 	if err != nil {
 		c.JSON(401, gin.H{
@@ -49,7 +49,7 @@ func (h *PostsRouter) LikePost(c *gin.Context) {
 	c.JSON(201, gin.H{"message": "Post liked"})
 }
 
-func (h *PostsRouter) UnlikePost(c *gin.Context) {
+func (h *PostsRouter) unlikePost(c *gin.Context) {
 	session, err := utils.ValidateSession(c)
 	if err != nil {
 		c.JSON(401, gin.H{

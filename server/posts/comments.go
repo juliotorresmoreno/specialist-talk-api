@@ -20,7 +20,7 @@ type Comment struct {
 	DeletedAt  *time.Time `json:"deleted_at,omitempty"`
 }
 
-func (h *PostsRouter) CreateComment(c *gin.Context) {
+func (h *PostsRouter) createComment(c *gin.Context) {
 	session, err := utils.ValidateSession(c)
 	if err != nil {
 		c.JSON(401, gin.H{
@@ -55,7 +55,7 @@ func (h *PostsRouter) CreateComment(c *gin.Context) {
 	c.JSON(201, gin.H{"message": "Comment created"})
 }
 
-func (h *PostsRouter) GetComments(c *gin.Context) {
+func (h *PostsRouter) getComments(c *gin.Context) {
 	_, err := utils.ValidateSession(c)
 	if err != nil {
 		c.JSON(401, gin.H{
@@ -82,7 +82,7 @@ func (h *PostsRouter) GetComments(c *gin.Context) {
 	c.JSON(200, comments)
 }
 
-func (h *PostsRouter) DeleteComment(c *gin.Context) {
+func (h *PostsRouter) deleteComment(c *gin.Context) {
 	session, err := utils.ValidateSession(c)
 	if err != nil {
 		c.JSON(401, gin.H{
@@ -95,7 +95,7 @@ func (h *PostsRouter) DeleteComment(c *gin.Context) {
 	commentID, _ := strconv.Atoi(c.Param("commentId"))
 
 	err = db.DefaultClient.
-		Where(&models.Comment{ID: commentID, AuthorId: session.ID, PostId: uint(postID)}).
+		Where(&models.Comment{ID: uint(commentID), AuthorId: session.ID, PostId: uint(postID)}).
 		Delete(&models.Comment{}).Error
 	if err != nil {
 		c.JSON(500, gin.H{

@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
+	"runtime"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -14,13 +16,16 @@ import (
 )
 
 func main() {
+	_, filename, _, _ := runtime.Caller(1)
+	fmt.Println(filename)
 	time.Local = time.UTC // default to UTC for all time values
-	err := godotenv.Load()
+	err := godotenv.Load(".env")
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
 	logger.SetupLogrus()
 	db.Setup()
+	events.Setup()
 
 	r := gin.Default()
 	server.SetupAPIRoutes(r.Group("/api"))

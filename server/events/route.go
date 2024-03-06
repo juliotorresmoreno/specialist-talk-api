@@ -1,11 +1,15 @@
 package events
 
 import (
+	"context"
+	"encoding/json"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/juliotorresmoreno/specialist-talk-api/db"
 	"github.com/juliotorresmoreno/specialist-talk-api/logger"
 	"github.com/juliotorresmoreno/specialist-talk-api/utils"
+	"github.com/redis/go-redis/v9"
 )
 
 var log = logger.SetupLogger()
@@ -31,17 +35,41 @@ type EventsRouter struct {
 	Unregister  chan *Client
 	Subscribers map[uint][]*Client
 	Handler     chan *Request
+	Redis       *redis.Client
 }
 
-var DefaultEventsRouter = &EventsRouter{
-	Register:    make(chan *Client),
-	Unregister:  make(chan *Client),
-	Subscribers: make(map[uint][]*Client),
-	Handler:     make(chan *Request),
-}
+var DefaultEventsRouter *EventsRouter
 
-func init() {
+func Setup() {
+	rdb, err := db.NewRedisClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+	DefaultEventsRouter = &EventsRouter{
+		Register:    make(chan *Client),
+		Unregister:  make(chan *Client),
+		Subscribers: make(map[uint][]*Client),
+		Handler:     make(chan *Request),
+		Redis:       rdb,
+	}
+
+	go DefaultEventsRouter.subscribe()
 	go DefaultEventsRouter.Run()
+}
+
+func (h *EventsRouter) subscribe() {
+	sub := h.Redis.Subscribe(context.Background(), "events")
+	for {
+		msg, err := sub.ReceiveMessage(context.Background())
+		if err != nil {
+			log.Fatal(err)
+		}
+		evt := &Request{}
+		if err = json.Unmarshal([]byte(msg.Payload), evt); err != nil {
+			continue
+		}
+		h.Handler <- evt
+	}
 }
 
 func SetupAPIRoutes(g *gin.RouterGroup) chan *Request {
@@ -143,10 +171,11 @@ func (h *EventsRouter) Publish(c *gin.Context) {
 	}
 
 	id, _ := strconv.Atoi(c.Param("id"))
-	h.Handler <- &Request{
+	request, _ := json.Marshal(&Request{
 		ID:    uint(id),
 		Event: event,
-	}
+	})
+	db.DefaultCache.Publish(context.Background(), "events", string(request))
 
 	c.JSON(200, gin.H{"status": "ok"})
 }
