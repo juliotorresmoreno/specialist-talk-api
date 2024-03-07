@@ -1,10 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
-	"runtime"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -16,8 +14,7 @@ import (
 )
 
 func main() {
-	_, filename, _, _ := runtime.Caller(1)
-	fmt.Println(filename)
+	gin.SetMode(gin.ReleaseMode)
 	time.Local = time.UTC // default to UTC for all time values
 	err := godotenv.Load(".env")
 	if err != nil {
@@ -30,5 +27,6 @@ func main() {
 	r := gin.Default()
 	server.SetupAPIRoutes(r.Group("/api"))
 	events.SetupAPIRoutes(r.Group("/events"))
+
 	r.Run(os.Getenv("ADDR"))
 }
