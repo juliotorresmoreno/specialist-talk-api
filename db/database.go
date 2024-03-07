@@ -39,6 +39,7 @@ func Setup() {
 	reportError(DefaultClient.AutoMigrate(&models.Comment{}))
 	reportError(DefaultClient.AutoMigrate(&models.Chat{}))
 	reportError(DefaultClient.AutoMigrate(&models.ChatUser{}))
+	reportError(DefaultClient.AutoMigrate(&models.Message{}))
 
 	DefaultCache, err = NewRedisClient()
 	if err == nil {

@@ -9,13 +9,12 @@ import (
 	"github.com/juliotorresmoreno/specialist-talk-api/models"
 )
 
-var SessionFields = []string{"id", "first_name", "last_name", "username", "email", "photo_url", "phone"}
-
 type User struct {
 	ID        uint   `json:"id"`
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
 	Email     string `json:"email"`
+	Username  string `json:"username"`
 	PhotoURL  string `json:"photo_url"`
 	Phone     string `json:"phone"`
 }
@@ -28,26 +27,24 @@ type Session struct {
 func ValidateSession(c *gin.Context) (*User, error) {
 	token, err := GetToken(c)
 	if err != nil {
-		return &User{}, StatusUnauthorized
+		return nil, StatusUnauthorized
 	}
-	ctx := context.Background()
-	cmd := db.DefaultCache.Get(ctx, "session-"+token)
+	cmd := db.DefaultCache.Get(context.Background(), "session-"+token)
 	email := cmd.Val()
 	if email == "" {
-		return &User{}, StatusUnauthorized
+		return nil, StatusUnauthorized
 	}
 
 	conn := db.DefaultClient
-	user := &models.User{}
-	tx := conn.Select(SessionFields).First(user, "email = ? AND deleted_at IS NULL", email)
-	if tx.Error != nil {
-		return &User{}, StatusInternalServerError
+	user := &User{}
+	err = conn.Model(&models.User{}).First(user, "email = ? AND deleted_at IS NULL", email).Error
+	if err != nil {
+		return nil, StatusInternalServerError
 	}
 
-	db.DefaultCache.Set(ctx, "session-"+token, email, 24*time.Hour)
-	session := ParseSession(token, user)
+	db.DefaultCache.Set(context.Background(), "session-"+token, email, 24*time.Hour)
 
-	return session.User, nil
+	return user, nil
 }
 
 func ParseSession(token string, user *models.User) *Session {

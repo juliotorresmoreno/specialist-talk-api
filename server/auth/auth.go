@@ -114,6 +114,8 @@ type SignInPayload struct {
 }
 
 func (auth *AuthRouter) SignIn(c *gin.Context) {
+	fields := []string{"id", "first_name", "last_name", "username", "email", "photo_url", "phone", "password"}
+
 	payload := &SignInPayload{}
 
 	err := c.ShouldBind(payload)
@@ -125,7 +127,7 @@ func (auth *AuthRouter) SignIn(c *gin.Context) {
 	conn := db.DefaultClient
 	user := &models.User{}
 
-	tx := conn.Select(utils.SessionFields, "password").First(
+	tx := conn.Select(fields, "password").First(
 		user, "email = ?", payload.Email,
 	)
 	if tx.Error != nil {

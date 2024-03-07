@@ -1,6 +1,7 @@
 package chats
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
@@ -8,10 +9,14 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator"
 	"github.com/juliotorresmoreno/specialist-talk-api/db"
+	"github.com/juliotorresmoreno/specialist-talk-api/logger"
 	"github.com/juliotorresmoreno/specialist-talk-api/models"
+	"github.com/juliotorresmoreno/specialist-talk-api/server/events"
 	"github.com/juliotorresmoreno/specialist-talk-api/utils"
 	"gorm.io/gorm"
 )
+
+var log = logger.SetupLogger()
 
 type ChatsRouter struct{}
 
@@ -22,8 +27,10 @@ func SetupAPIRoutes(g *gin.RouterGroup) {
 	g.GET("/:id", h.findOne)
 	g.POST("", h.create)
 	g.PATCH("/:id", h.update)
-	g.PUT("/addUser", h.addUser)
+	g.PUT("/:id/addUser", h.addUser)
 	g.GET("/:id/users", h.getUsers)
+	g.GET("/:id/messages", h.getMessages)
+	g.POST("/:id/messages", h.createMessage)
 }
 
 type User struct {
@@ -172,11 +179,16 @@ func (h *ChatsRouter) update(c *gin.Context) {
 		return
 	}
 
+	if !h.memberOfChat(uint(id), session.ID) {
+		c.JSON(401, gin.H{"error": "Unauthorized"})
+		return
+	}
+
 	chat := &models.Chat{
 		Name: payload.Name,
 	}
 	err = db.DefaultClient.Model(&models.Chat{}).
-		Where(&models.Chat{ID: uint(id), OwnerId: session.ID}).
+		Where(&models.Chat{ID: uint(id)}).
 		Updates(chat).Error
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
@@ -187,12 +199,10 @@ func (h *ChatsRouter) update(c *gin.Context) {
 }
 
 type AddUserPayload struct {
-	ChatID uint `json:"chat_id" validate:"required"`
 	UserID uint `json:"user_id" validate:"required"`
 }
 
 type AddUserErrors struct {
-	ChatID string `json:"chat_id,omitempty"`
 	UserID string `json:"user_id,omitempty"`
 }
 
@@ -205,24 +215,10 @@ func (h *ChatsRouter) addUser(c *gin.Context) {
 		return
 	}
 
-	chat := &Chat{}
-	err = db.DefaultClient.Model(&models.Chat{}).
-		Where(&models.Chat{ID: chat.ID}).
-		First(chat).Error
-	if err != nil {
-		c.JSON(404, gin.H{"error": "Not found"})
+	id, _ := strconv.Atoi(c.Param("id"))
+	if !h.memberOfChat(uint(id), session.ID) {
+		c.JSON(401, gin.H{"error": "Unauthorized"})
 		return
-	}
-
-	if chat.OwnerId != session.ID {
-		chatUser := &ChatUser{}
-		err = db.DefaultClient.Model(&models.ChatUser{}).
-			Where(&models.ChatUser{ChatId: chat.ID, UserId: session.ID}).
-			First(chatUser).Error
-		if err != nil {
-			c.JSON(401, gin.H{"error": "Unauthorized"})
-			return
-		}
 	}
 
 	payload := &AddUserPayload{}
@@ -230,7 +226,6 @@ func (h *ChatsRouter) addUser(c *gin.Context) {
 	if err := validate.Struct(payload); err != nil {
 		errorsMap := utils.ParseErrors(err.(validator.ValidationErrors))
 		customErrors := AddUserErrors{
-			ChatID: errorsMap["ChatID"],
 			UserID: errorsMap["UserID"],
 		}
 		c.JSON(http.StatusBadRequest, customErrors)
@@ -238,7 +233,7 @@ func (h *ChatsRouter) addUser(c *gin.Context) {
 	}
 
 	chatUser := &models.ChatUser{
-		ChatId: payload.ChatID,
+		ChatId: uint(id),
 		UserId: payload.UserID,
 	}
 	err = db.DefaultClient.Create(chatUser).Error
@@ -294,29 +289,14 @@ func (h *ChatsRouter) getUsers(c *gin.Context) {
 	}
 
 	id, _ := strconv.Atoi(c.Param("id"))
-	chat := &Chat{}
-	err = db.DefaultClient.Model(&models.Chat{}).
-		Where(&models.Chat{ID: uint(id)}).
-		First(chat).Error
-	if err != nil {
-		c.JSON(404, gin.H{"error": "Not found"})
+	if !h.memberOfChat(uint(id), session.ID) {
+		c.JSON(401, gin.H{"error": "Unauthorized"})
 		return
-	}
-
-	if chat.OwnerId != session.ID {
-		chatUser := &ChatUser{}
-		err = db.DefaultClient.Model(&models.ChatUser{}).
-			Where(&models.ChatUser{ChatId: chat.ID, UserId: session.ID}).
-			First(chatUser).Error
-		if err != nil {
-			c.JSON(401, gin.H{"error": "Unauthorized"})
-			return
-		}
 	}
 
 	users := []*ChatUser{}
 	err = db.DefaultClient.Model(&models.ChatUser{}).
-		Where(&models.ChatUser{ChatId: chat.ID}).
+		Where(&models.ChatUser{ChatId: uint(id)}).
 		Preload("User", "deleted_at is null").
 		Find(&users).Error
 	if err != nil {
@@ -325,4 +305,158 @@ func (h *ChatsRouter) getUsers(c *gin.Context) {
 	}
 
 	c.JSON(200, users)
+}
+
+type Message struct {
+	ID         uint       `json:"id"`
+	ChatID     uint       `json:"chat_id"`
+	Chat       Chat       `json:"-"`
+	UserID     uint       `json:"user_id"`
+	User       User       `json:"user"`
+	Content    string     `json:"content"`
+	CreationAt time.Time  `json:"creation_at"`
+	UpdatedAt  time.Time  `json:"updated_at"`
+	DeletedAt  *time.Time `json:"deleted_at,omitempty"`
+}
+
+func (h *ChatsRouter) getMessages(c *gin.Context) {
+	session, err := utils.ValidateSession(c)
+	if err != nil {
+		c.JSON(401, gin.H{
+			"message": "Unauthorized",
+		})
+		return
+	}
+
+	id, _ := strconv.Atoi(c.Param("id"))
+	if !h.memberOfChat(uint(id), session.ID) {
+		c.JSON(401, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	messages := []*Message{}
+	err = db.DefaultClient.Model(&models.Message{}).
+		Where(&models.Message{ChatId: uint(id)}).
+		Preload("User", "deleted_at is null").
+		Find(&messages).Error
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, messages)
+}
+
+type CreateMessagePayload struct {
+	ChatID  uint   `json:"chat_id" validate:"required"`
+	Content string `json:"content" validate:"required"`
+}
+
+type CreateMessageErrors struct {
+	ChatID  string `json:"chat_id,omitempty"`
+	Content string `json:"content,omitempty"`
+}
+
+func (h *ChatsRouter) createMessage(c *gin.Context) {
+	session, err := utils.ValidateSession(c)
+	if err != nil {
+		log.Error("Unauthorized: ", err)
+		c.JSON(401, gin.H{
+			"message": "Unauthorized",
+		})
+		return
+	}
+
+	payload := &CreateMessagePayload{}
+	err = c.ShouldBind(payload)
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	validate := validator.New()
+	if err := validate.Struct(payload); err != nil {
+		errorsMap := utils.ParseErrors(err.(validator.ValidationErrors))
+		customErrors := CreateMessageErrors{
+			ChatID:  errorsMap["ChatID"],
+			Content: errorsMap["Content"],
+		}
+		c.JSON(http.StatusBadRequest, customErrors)
+		return
+	}
+
+	if !h.memberOfChat(payload.ChatID, session.ID) {
+		c.JSON(401, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	message := &models.Message{
+		ChatId:  payload.ChatID,
+		UserId:  session.ID,
+		Content: payload.Content,
+	}
+	err = db.DefaultClient.Create(message).Error
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	h.sendToChat(payload.ChatID, Message{
+		ID:     message.ID,
+		ChatID: message.ChatId,
+		UserID: message.UserId,
+		User: User{
+			ID:        session.ID,
+			FirstName: session.FirstName,
+			LastName:  session.LastName,
+			Username:  session.Username,
+			PhotoURL:  session.PhotoURL,
+		},
+		Content: message.Content,
+	})
+
+	c.JSON(200, gin.H{"message": "Created"})
+}
+
+func (h *ChatsRouter) sendToChat(chatID uint, message Message) error {
+	chatUsers := []*ChatUser{}
+	err := db.DefaultClient.Model(&models.ChatUser{}).
+		Where(&models.ChatUser{ChatId: chatID}).
+		Find(&chatUsers).Error
+	if err != nil {
+		return err
+	}
+	data, _ := json.Marshal(message)
+	for _, chatUser := range chatUsers {
+		events.DefaultEventsRouter.Handler <- &events.Request{
+			ID: chatUser.UserId,
+			Event: &events.Event{
+				Type: "message",
+				Data: string(data),
+			},
+		}
+	}
+	return nil
+}
+
+func (h *ChatsRouter) memberOfChat(chatID, userID uint) bool {
+	chat := &Chat{}
+	err := db.DefaultClient.Model(&models.Chat{}).
+		Where(&models.Chat{ID: uint(chatID)}).
+		First(chat).Error
+	if err != nil {
+		return false
+	}
+
+	if chat.OwnerId != userID {
+		chatUser := &ChatUser{}
+		err = db.DefaultClient.Model(&models.ChatUser{}).
+			Where(&models.ChatUser{ChatId: chat.ID, UserId: userID}).
+			First(chatUser).Error
+		if err != nil {
+			return false
+		}
+	}
+
+	return true
 }
