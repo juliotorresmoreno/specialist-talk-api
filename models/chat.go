@@ -9,6 +9,8 @@ import (
 type Chat struct {
 	ID         uint           `gorm:"primaryKey"`
 	Name       string         `gorm:"not null"`
+	Code       string         `gorm:"not null;default:'';unique"`
+	Active     bool           `gorm:"not null"`
 	OwnerId    uint           `gorm:"not null"`
 	Owner      *User          `gorm:"foreignKey:OwnerId"`
 	Chats      []ChatUser     `gorm:"foreignKey:ChatId"`
