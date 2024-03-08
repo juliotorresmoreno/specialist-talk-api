@@ -154,6 +154,28 @@ func (h *ChatsRouter) create(c *gin.Context) {
 
 		db.DefaultClient.Preload("Owner").Where(&Chat{Code: code}).First(&exists)
 		if exists.ID > 0 {
+			if exists.OwnerId != session.ID {
+				db.DefaultClient.Where(&models.Chat{ID: exists.ID}).
+					Updates(&models.Chat{
+						Active: true,
+					})
+				chatUser := &models.ChatUser{}
+				db.DefaultClient.Where(&models.ChatUser{
+					ChatId: exists.ID,
+					UserId: session.ID,
+				}).First(chatUser)
+				if chatUser.ID == 0 {
+					chatUser = &models.ChatUser{
+						ChatId: exists.ID,
+						UserId: session.ID,
+					}
+					err = db.DefaultClient.Create(chatUser).Error
+					if err != nil {
+						c.JSON(500, gin.H{"error": err.Error()})
+						return
+					}
+				}
+			}
 			c.JSON(200, Chat{
 				ID:      exists.ID,
 				Name:    exists.Name,
