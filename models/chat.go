@@ -7,16 +7,18 @@ import (
 )
 
 type Chat struct {
-	ID         uint           `gorm:"primaryKey"`
-	Name       string         `gorm:"not null"`
-	Code       string         `gorm:"not null;default:'';unique"`
-	Active     bool           `gorm:"not null"`
-	OwnerId    uint           `gorm:"not null"`
-	Owner      *User          `gorm:"foreignKey:OwnerId"`
-	Chats      []ChatUser     `gorm:"foreignKey:ChatId"`
-	CreationAt time.Time      `gorm:"autoCreateTime"`
-	UpdatedAt  time.Time      `gorm:"autoUpdateTime"`
-	DeletedAt  gorm.DeletedAt `gorm:"type:timestamptz"`
+	ID          uint           `gorm:"primaryKey"`
+	Name        string         `gorm:"not null"`
+	Description string         `gorm:"not null;default:''"`
+	PhotoURL    string         `gorm:"not null;default:''"`
+	Code        string         `gorm:"not null;default:'';unique"`
+	Active      bool           `gorm:"not null"`
+	OwnerId     uint           `gorm:"not null"`
+	Owner       *User          `gorm:"foreignKey:OwnerId"`
+	Chats       []ChatUser     `gorm:"foreignKey:ChatId"`
+	CreationAt  time.Time      `gorm:"autoCreateTime"`
+	UpdatedAt   time.Time      `gorm:"autoUpdateTime"`
+	DeletedAt   gorm.DeletedAt `gorm:"type:timestamptz"`
 }
 
 func (u Chat) TableName() string {

@@ -52,17 +52,19 @@ type User struct {
 }
 
 type Chat struct {
-	ID         uint       `json:"id"`
-	Name       string     `json:"name"`
-	OwnerId    uint       `json:"owner_id"`
-	Owner      *User      `json:"owner"`
-	Chats      []ChatUser `json:"-"`
-	UserId     uint       `json:"user_id,omitempty" gorm:"-"`
-	Code       string     `json:"code"`
-	Active     bool       `json:"active"`
-	CreationAt time.Time  `json:"creation_at"`
-	UpdatedAt  time.Time  `json:"updated_at"`
-	DeletedAt  *time.Time `json:"deleted_at,omitempty"`
+	ID          uint       `json:"id"`
+	Name        string     `json:"name"`
+	Description string     `json:"description"`
+	PhotoURL    string     `json:"photo_url"`
+	OwnerId     uint       `json:"owner_id"`
+	Owner       *User      `json:"owner"`
+	ChatUsers   []ChatUser `json:"chat_users,omitempty"`
+	UserId      uint       `json:"user_id,omitempty" gorm:"-"`
+	Code        string     `json:"code"`
+	Active      bool       `json:"active"`
+	CreationAt  time.Time  `json:"creation_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
 }
 
 type ChatUser struct {
@@ -88,7 +90,9 @@ func (h *ChatsRouter) find(c *gin.Context) {
 	chatUsers := []*ChatUser{}
 	err = db.DefaultClient.Model(&models.ChatUser{}).
 		Preload("Chat", "deleted_at is null", func(db *gorm.DB) *gorm.DB {
-			return db.Preload("Owner", "deleted_at is null")
+			return db.Preload("Owner", "deleted_at is null").
+				Preload("ChatUsers", "deleted_at is null").
+				Preload("ChatUsers.User", "deleted_at is null")
 		}).
 		Where(&models.ChatUser{UserId: session.ID}).
 		Find(&chatUsers).Error
@@ -177,11 +181,13 @@ func (h *ChatsRouter) create(c *gin.Context) {
 				}
 			}
 			c.JSON(200, Chat{
-				ID:      exists.ID,
-				Name:    exists.Name,
-				Code:    exists.Code,
-				Active:  exists.Active,
-				OwnerId: exists.OwnerId,
+				ID:          exists.ID,
+				Name:        exists.Name,
+				Description: exists.Description,
+				PhotoURL:    exists.PhotoURL,
+				Code:        exists.Code,
+				Active:      exists.Active,
+				OwnerId:     exists.OwnerId,
 				Owner: &User{
 					ID:           exists.Owner.ID,
 					FirstName:    exists.Owner.FirstName,
@@ -201,10 +207,12 @@ func (h *ChatsRouter) create(c *gin.Context) {
 	}
 
 	chat := &models.Chat{
-		Name:    payload.Name,
-		Code:    code,
-		Active:  false,
-		OwnerId: session.ID,
+		Name:        payload.Name,
+		Description: payload.Description,
+		PhotoURL:    payload.PhotoURL,
+		Code:        code,
+		Active:      false,
+		OwnerId:     session.ID,
 	}
 	err = db.DefaultClient.Create(chat).Error
 	if err != nil {
@@ -229,11 +237,13 @@ func (h *ChatsRouter) create(c *gin.Context) {
 		return
 	}
 	c.JSON(200, Chat{
-		ID:      exists.ID,
-		Name:    exists.Name,
-		Code:    exists.Code,
-		Active:  exists.Active,
-		OwnerId: exists.OwnerId,
+		ID:          exists.ID,
+		Name:        exists.Name,
+		Description: exists.Description,
+		PhotoURL:    exists.PhotoURL,
+		Code:        exists.Code,
+		Active:      exists.Active,
+		OwnerId:     exists.OwnerId,
 		Owner: &User{
 			ID:           exists.Owner.ID,
 			FirstName:    exists.Owner.FirstName,
@@ -283,7 +293,9 @@ func (h *ChatsRouter) update(c *gin.Context) {
 	}
 
 	chat := &models.Chat{
-		Name: payload.Name,
+		Name:        payload.Name,
+		Description: payload.Description,
+		PhotoURL:    payload.PhotoURL,
 	}
 	err = db.DefaultClient.Model(&models.Chat{}).
 		Where(&models.Chat{ID: uint(id)}).
