@@ -158,7 +158,13 @@ func (h *ChatsRouter) create(c *gin.Context) {
 		hash := sha1.Sum(jsonData)
 		code = fmt.Sprintf("%x", hash)
 
-		db.DefaultClient.Preload("Owner").Where(&Chat{Code: code}).First(&exists)
+		db.DefaultClient.
+			Model(&models.Chat{}).
+			Preload("Owner", "deleted_at is null").
+			Preload("Chats", "deleted_at is null", func(db *gorm.DB) *gorm.DB {
+				return db.Preload("User", "deleted_at is null")
+			}).
+			Where(&Chat{Code: code}).First(&exists)
 		if exists.ID > 0 {
 			if exists.OwnerId != session.ID {
 				db.DefaultClient.Where(&models.Chat{ID: exists.ID}).
@@ -201,6 +207,7 @@ func (h *ChatsRouter) create(c *gin.Context) {
 					CreationAt:   exists.Owner.CreationAt,
 					UpdatedAt:    exists.Owner.UpdatedAt,
 				},
+				ChatUsers:  parseChatUsers(exists.Chats),
 				CreationAt: exists.CreationAt,
 				UpdatedAt:  exists.UpdatedAt,
 			})
@@ -233,7 +240,12 @@ func (h *ChatsRouter) create(c *gin.Context) {
 	}
 
 	exists = models.Chat{}
-	err = db.DefaultClient.Preload("Owner").Where(&Chat{ID: chat.ID}).First(&exists).Error
+	err = db.DefaultClient.
+		Preload("Owner", "deleted_at is null").
+		Preload("Chats", "deleted_at is null", func(db *gorm.DB) *gorm.DB {
+			return db.Preload("User", "deleted_at is null")
+		}).
+		Where(&Chat{ID: chat.ID}).First(&exists).Error
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
@@ -257,9 +269,35 @@ func (h *ChatsRouter) create(c *gin.Context) {
 			CreationAt:   exists.Owner.CreationAt,
 			UpdatedAt:    exists.Owner.UpdatedAt,
 		},
+		ChatUsers:  parseChatUsers(exists.Chats),
 		CreationAt: exists.CreationAt,
 		UpdatedAt:  exists.UpdatedAt,
 	})
+}
+
+func parseChatUsers(chatUsers []models.ChatUser) []ChatUser {
+	result := []ChatUser{}
+	for _, chatUser := range chatUsers {
+		result = append(result, ChatUser{
+			ID:     chatUser.ID,
+			ChatId: chatUser.ChatId,
+			UserId: chatUser.UserId,
+			User: User{
+				ID:           chatUser.User.ID,
+				FirstName:    chatUser.User.FirstName,
+				LastName:     chatUser.User.LastName,
+				Username:     chatUser.User.Username,
+				PhotoURL:     chatUser.User.PhotoURL,
+				Business:     chatUser.User.Business,
+				PositionName: chatUser.User.PositionName,
+				CreationAt:   chatUser.User.CreationAt,
+				UpdatedAt:    chatUser.User.UpdatedAt,
+			},
+			CreationAt: chatUser.CreationAt,
+			UpdatedAt:  chatUser.UpdatedAt,
+		})
+	}
+	return result
 }
 
 func (h *ChatsRouter) update(c *gin.Context) {
