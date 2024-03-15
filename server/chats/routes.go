@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"sort"
 	"strconv"
 	"time"
@@ -103,7 +104,8 @@ func (h *ChatsRouter) find(c *gin.Context) {
 
 	chats := []Chat{}
 	for _, chatUser := range chatUsers {
-		if chatUser.Chat.Active || chatUser.Chat.OwnerId == session.ID {
+		if chatUser.Chat.Active {
+			json.NewEncoder(os.Stdout).Encode(chatUser.Chat)
 			chats = append(chats, chatUser.Chat)
 		}
 	}

@@ -1,9 +1,12 @@
 package utils
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"image"
+	"image/jpeg"
 	"io"
 	"os"
 	"path/filepath"
@@ -56,4 +59,19 @@ func ReadPDF(fileBuff string) (string, error) {
 	}
 
 	return string(output), nil
+}
+
+func ConvertToJPEG(in io.Reader) (*bytes.Buffer, error) {
+	buff := bytes.NewBuffer([]byte{})
+	img, _, err := image.Decode(in)
+	if err != nil {
+		return buff, err
+	}
+
+	err = jpeg.Encode(buff, img, nil)
+	if err != nil {
+		return buff, err
+	}
+
+	return buff, nil
 }

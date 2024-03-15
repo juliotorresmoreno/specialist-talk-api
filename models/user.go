@@ -10,8 +10,9 @@ type User struct {
 	ID             uint           `gorm:"primaryKey"`
 	ValidationCode string         `gorm:"type:varchar(6)"`
 	Verified       bool           `gorm:"default:false"`
-	FirstName      string         `gorm:"type:varchar(100);default:'';nullable;index"`
-	LastName       string         `gorm:"type:varchar(100);default:'';nullable;index"`
+	FirstName      string         `gorm:"type:varchar(100);default:'';nullable"`
+	LastName       string         `gorm:"type:varchar(100);default:'';nullable"`
+	FullName       string         `gorm:"type:varchar(200);default:'';nullable;index"`
 	Email          string         `gorm:"type:varchar(300);default:'';unique;not null"`
 	Username       string         `gorm:"type:varchar(100);default:'';unique;not null"`
 	Password       string         `gorm:"type:varchar(512);default:'';not null"`

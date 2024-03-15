@@ -13,6 +13,7 @@ type User struct {
 	ID        uint   `json:"id"`
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
+	FullName  string `json:"full_name"`
 	Email     string `json:"email"`
 	Username  string `json:"username"`
 	PhotoURL  string `json:"photo_url"`
@@ -54,6 +55,7 @@ func ParseSession(token string, user *models.User) *Session {
 			ID:        user.ID,
 			FirstName: user.FirstName,
 			LastName:  user.LastName,
+			FullName:  user.FullName,
 			Email:     user.Email,
 			PhotoURL:  user.PhotoURL,
 			Phone:     user.Phone,

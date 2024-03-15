@@ -1,7 +1,11 @@
 package users
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -9,8 +13,10 @@ import (
 	"github.com/go-playground/validator"
 	"github.com/juliotorresmoreno/specialist-talk-api/db"
 	"github.com/juliotorresmoreno/specialist-talk-api/logger"
+	"github.com/juliotorresmoreno/specialist-talk-api/miniostorage"
 	"github.com/juliotorresmoreno/specialist-talk-api/models"
 	"github.com/juliotorresmoreno/specialist-talk-api/utils"
+	"github.com/minio/minio-go/v7"
 )
 
 var log = logger.SetupLogger()
@@ -32,9 +38,11 @@ type User struct {
 	Verified     bool       `json:"verified"`
 	FirstName    string     `json:"first_name" validate:"omitempty,min=2,max=100"`
 	LastName     string     `json:"last_name" validate:"omitempty,min=2,max=100"`
+	FullName     string     `json:"full_name"`
 	Email        string     `json:"email" validate:"omitempty,email"`
 	Username     string     `json:"username"`
 	PhotoURL     string     `json:"photo_url"`
+	Photo        string     `json:"photo,omitempty" gorm:"-"`
 	Phone        string     `json:"phone" validate:"omitempty,min=7,max=15"`
 	Business     string     `json:"business"`
 	PositionName string     `json:"position_name"`
@@ -78,7 +86,7 @@ func (h *UsersRouter) find(c *gin.Context) {
 	conn := db.DefaultClient
 	users := &[]*User{}
 	err = conn.Model(&models.User{}).
-		Where("concat(first_name, ' ', last_name) LIKE ? or email LIKE ?", strings.ReplaceAll(q, " ", "%"), q).
+		Where("full_name LIKE ? or email LIKE ?", strings.ReplaceAll(q, " ", "%"), q).
 		Where("deleted_at IS NULL").
 		Find(users).Error
 	if err != nil {
@@ -150,15 +158,26 @@ func (h *UsersRouter) updateMe(c *gin.Context) {
 		return
 	}
 
+	photoURL := ""
+	if payload.Photo != "" {
+		photoURL, err = h.uploadPhoto(payload.Photo)
+		if err != nil {
+			log.Error("Error uploading photo", err)
+			utils.Response(c, err)
+			return
+		}
+	}
+
 	user := &models.User{
 		FirstName:    payload.FirstName,
 		LastName:     payload.LastName,
+		FullName:     fullName(session, payload),
 		Business:     payload.Business,
 		PositionName: payload.PositionName,
 		Url:          payload.Url,
 		Description:  payload.Description,
 		Phone:        payload.Phone,
-		PhotoURL:     payload.PhotoURL,
+		PhotoURL:     photoURL,
 		UpdatedAt:    time.Now(),
 	}
 
@@ -171,4 +190,51 @@ func (h *UsersRouter) updateMe(c *gin.Context) {
 	}
 
 	c.JSON(200, gin.H{"message": "Profile updated successfully"})
+}
+
+func (h *UsersRouter) uploadPhoto(photo string) (string, error) {
+	bucket := os.Getenv("MINIO_BUCKET")
+	miniostorage, err := miniostorage.NewClient()
+	if err != nil {
+		return "", err
+	}
+	attachment, err := utils.ParseBase64File(photo)
+	if err != nil {
+		return "", err
+	}
+	decoded, err := base64.StdEncoding.DecodeString(attachment)
+	if err != nil {
+		return "", err
+	}
+
+	converted, err := utils.ConvertToJPEG(bytes.NewBufferString(string(decoded)))
+	if err != nil {
+		return "", err
+	}
+
+	objectName := utils.GenerateRandomFileName("photo_", ".jpeg")
+	_, err = miniostorage.PutObject(
+		context.Background(), bucket, objectName, converted,
+		int64(converted.Len()), minio.PutObjectOptions{},
+	)
+	if err != nil {
+		return "", err
+	}
+
+	photoURL := os.Getenv("ASSETS_PATH") + "/" + objectName
+
+	return photoURL, nil
+}
+
+func fullName(old *utils.User, payload *User) string {
+	if payload.FirstName != "" && payload.LastName != "" {
+		return strings.ToLower(payload.FirstName + " " + payload.LastName)
+	}
+	if payload.FirstName != "" {
+		return strings.ToLower(payload.FirstName + " " + old.LastName)
+	}
+	if payload.LastName != "" {
+		return strings.ToLower(old.FirstName + " " + payload.LastName)
+	}
+	return ""
 }

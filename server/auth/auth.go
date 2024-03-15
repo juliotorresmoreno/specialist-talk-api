@@ -27,6 +27,7 @@ func SetupAUTHRoutes(r *gin.RouterGroup) {
 type SignUpPayload struct {
 	FirstName string `json:"first_name" validate:"required,validname"`
 	LastName  string `json:"last_name" validate:"required,validname"`
+	FullName  string `json:"full_name"`
 	Username  string `json:"username" validate:"required,max=100"`
 	Email     string `json:"email" validate:"required,email"`
 	Password  string `json:"password" validate:"required,min=6"`
@@ -64,6 +65,7 @@ func (auth *AuthRouter) SignUp(c *gin.Context) {
 		FirstName: payload.FirstName,
 		LastName:  payload.LastName,
 		Username:  payload.Username,
+		FullName:  strings.ToLower(payload.FirstName + " " + payload.LastName),
 		Phone:     payload.Phone,
 		Email:     payload.Email,
 		Password:  payload.Password,
