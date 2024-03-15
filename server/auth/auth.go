@@ -167,13 +167,31 @@ func (auth *AuthRouter) SignIn(c *gin.Context) {
 	c.JSON(200, session.User)
 }
 
+type User struct {
+	ID           uint      `json:"id"`
+	FirstName    string    `json:"first_name"`
+	LastName     string    `json:"last_name"`
+	FullName     string    `json:"full_name"`
+	Email        string    `json:"email"`
+	Username     string    `json:"username"`
+	PhotoURL     string    `json:"photo_url"`
+	Phone        string    `json:"phone"`
+	Business     string    `json:"business"`
+	PositionName string    `json:"position_name"`
+	Url          string    `json:"url"`
+	CreationAt   time.Time `json:"creation_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
 func (auth *AuthRouter) Session(c *gin.Context) {
 	session, err := utils.ValidateSession(c)
 	if err != nil {
 		utils.Response(c, err)
 		return
 	}
-	c.JSON(200, session)
+	user := &User{}
+	db.DefaultClient.Model(&models.User{}).Where("id = ?", session.ID).First(user)
+	c.JSON(200, user)
 }
 
 func (auth *AuthRouter) Ping(c *gin.Context) {

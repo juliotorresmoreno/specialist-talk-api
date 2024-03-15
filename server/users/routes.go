@@ -43,7 +43,7 @@ type User struct {
 	Username     string     `json:"username"`
 	PhotoURL     string     `json:"photo_url"`
 	Photo        string     `json:"photo,omitempty" gorm:"-"`
-	Phone        string     `json:"phone" validate:"omitempty,min=7,max=15"`
+	Phone        string     `json:"phone"`
 	Business     string     `json:"business"`
 	PositionName string     `json:"position_name"`
 	Url          string     `json:"url" validate:"omitempty,url"`
@@ -154,6 +154,7 @@ func (h *UsersRouter) updateMe(c *gin.Context) {
 			Url:          errorsMap["Url"],
 			Description:  errorsMap["Description"],
 		}
+		log.Error("Error validating payload", err)
 		c.JSON(http.StatusBadRequest, customErrors)
 		return
 	}

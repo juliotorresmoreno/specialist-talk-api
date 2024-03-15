@@ -18,7 +18,7 @@ type User struct {
 	Password       string         `gorm:"type:varchar(512);default:'';not null"`
 	PhotoURL       string         `gorm:"type:varchar(1000);default:'';nullable"`
 	Bio            string         `gorm:"type:varchar(1000);default:'';nullable"`
-	Phone          string         `gorm:"type:varchar(15);default:'';nullable"`
+	Phone          string         `gorm:"type:varchar(20);default:'';nullable"`
 	Business       string         `gorm:"type:varchar(100);default:'';nullable"`
 	PositionName   string         `gorm:"type:varchar(100);default:'';nullable"`
 	Url            string         `gorm:"type:varchar(1000);default:'';nullable"`
